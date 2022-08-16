@@ -28,7 +28,7 @@ import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
  * @date 2022/8/14
  * 维度层DIM处理应用
  * 需要启动的进程
- *      zk、kafka、maxwell、hdfs、DimApp
+ *      zk、kafka、maxwell、hdfs、hbase、DimApp
  * 总结：
  *      整个维度处理流程图  必须掌握
  *      开发流程：
