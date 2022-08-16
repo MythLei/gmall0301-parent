@@ -2,6 +2,7 @@ package com.atguigu.gmall.realtime.app.dim;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.atguigu.gmall.realtime.app.func.DimSinkFunction;
 import com.atguigu.gmall.realtime.app.func.TableProcessFunction;
 import com.atguigu.gmall.realtime.bean.TableProcess;
 import com.atguigu.gmall.realtime.util.MyKafkaUtil;
@@ -29,31 +30,52 @@ import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
  * 维度层DIM处理应用
  * 需要启动的进程
  *      zk、kafka、maxwell、hdfs、hbase、DimApp
- * 总结：
- *      整个维度处理流程图  必须掌握
- *      开发流程：
- *          基本环境准备
- *          检查点设置
- *          从kafka的topic_db主题中读取业务数据
- *          对读取的数据进行类型转换    jsonStr->jsonObj
- *          简单的ETL
- *          ~~~~~~~~~~~~~~~~~~~~主流~~~~~~~~~~~~~~~~~~~~~~~~
- *          使用FlinkCDC读取配置表数据
- *          广播配置流
- *          ~~~~~~~~~~~~~~~~~~~~广播流~~~~~~~~~~~~~~~~~~~~~~~~
- *          将主流和广播流进行关联 -- connect
- *          对关联之后的数据进行处理--process
- *              class TableProcessFunction extends BroadcastProcessFunction{
- *                  processElement---处理主流数据
- *                  processBroadcastElement---处理广播流数据
- *                      //将flinkCDC读取到的json字符串转换为jsonObj
- *                      //判断对配置表进行操作类型
- *                      删除:
- *                          从广播状态中将对应的配置删除掉
- *                      其它:
- *                          将配置信息放到广播状态中或者更新广播状态的配置
+ * 开发流程
+ *      基本环境准备
+ *      检查点相关的设置
+ *      从kafka的topic_db主题中读取业务数据
+ *      对读取的数据进行类型转换        jsonStr->jsonObj
+ *      简单ETL
+ *      使用FlinkCDC读取配置表---配置流
+ *      将配置流进行广播，声明广播状态---广播流
+ *      将主流和广播流进行关联  ---connect
+ *      对关联后的数据进行处理  ---process
+ *      class TableProcessFunction extends BroadcastProcessFunction{
+ *          processElement---处理主流数据
+ *              获取处理业务数据库表名
+ *              获取广播状态
+ *              根据表名到广播状态中获取对应的配置信息
+ *              如果能够获取对应的配置信息，说明是维度数据
+ *                  对不需要传递的属性进行过滤
+ *                  补充传递的目的地
+ *                  将处理的维度的data部分向下游传递
+ *          processBroadcastElement---处理广播流数据
+ *              op="d"：对配置表进行了删除
+ *                  将删除的配置表从广播状态中删除掉
+ *              除了删除以外的其它操作
+ *                  提前将维度表创建出来
+ *                      拼接建表语句
+ *                      使用JDBC执行建表语句
+ *                  将配置表中的配置信息添加或者更新到广播状态中
+ *      }
+ *      将维度数据写到phoenix表中
+ *          class DimSinkFunction extends RichSinkFunction{
+ *              invoke(){
+ *                  拼接upsert语句
+ *                  使用JDBC执行upsert语句
  *              }
- *
+ *          }
+ * 以历史维度数据处理为例，分析程序执行的思路
+ *      启动zk、kafka、maxwell、hdfs、hbase、DimApp进程
+ *      当DimApp应用启动的时候，首先会读取配置表中的数据，将其放到广播状态中
+ *      当执行mysql_to_kafka_init.sh all脚本的时候，maxwell-bootstrap会扫描业务数据库中的所有维度表
+ *      将扫描到的维度数据交给maxwell进行处理
+ *      maxwell会将维度数据封装为json字符串，发送到kafka的topic_db主题中
+ *      DimApp从topic_db主题中读取数据
+ *      在TableProcessFunction类中，有processElement方法处理读取到的数据
+ *      判断是否是维度
+ *      如果是维度，向下游传递
+ *      写到phoenix表中
  */
 public class DimApp {
     public static void main(String[] args) throws Exception {
@@ -151,7 +173,10 @@ public class DimApp {
         SingleOutputStreamOperator<JSONObject> dimDS = connectDS.process(
             new TableProcessFunction(mapStateDescriptor)
         );
+        dimDS.print(">>>>");
         //TODO 10.将维度数据写到Phoenix表中
+        dimDS.addSink(new DimSinkFunction());
+
         env.execute();
     }
 }

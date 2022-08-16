@@ -6,15 +6,19 @@ import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.realtime.bean.TableProcess;
 import com.atguigu.gmall.realtime.common.GmallConfig;
 import com.atguigu.gmall.realtime.util.DruidDSUtil;
+import com.atguigu.gmall.realtime.util.PhoenixUtil;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.util.Collector;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Felix
@@ -38,7 +42,40 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
 
     //处理主流业务数据
     @Override
-    public void processElement(JSONObject value, ReadOnlyContext ctx, Collector<JSONObject> out) throws Exception {
+    public void processElement(JSONObject jsonObj, ReadOnlyContext ctx, Collector<JSONObject> out) throws Exception {
+        //获取处理的业务数据库表的表名
+        String tableName = jsonObj.getString("table");
+        //获取广播状态
+        ReadOnlyBroadcastState<String, TableProcess> broadcastState = ctx.getBroadcastState(mapStateDescriptor);
+        //根据表名获取对应的配置信息
+        TableProcess tableProcess = broadcastState.get(tableName);
+        if(tableProcess != null){
+            //维度数据   {"tm_name":"xzls","logo_url":"123","id":12}
+            JSONObject dataJsonObj = jsonObj.getJSONObject("data");
+
+            //过滤掉不需要传递的字段 {"tm_name":"xzls","id":12}
+            String sinkColumns = tableProcess.getSinkColumns();
+            filterColumn(dataJsonObj,sinkColumns);
+
+            //获取目的地表  在向下游传递数据前 补充目的地属性
+            String sinkTable = tableProcess.getSinkTable();
+            //{"tm_name":"xzls","sink_table":"dim_base_trademark","id":12}
+            dataJsonObj.put("sink_table",sinkTable);
+            // 将维度数据向下游传递
+            out.collect(dataJsonObj);
+        }
+    }
+
+    //过滤不需要向下游传递的属性
+    // dataJsonObj：{"tm_name":"xzls","logo_url":"123","id":12}
+    // sinkColumns： id,tm_name
+    private void filterColumn(JSONObject dataJsonObj, String sinkColumns) {
+        String[] columnArr = sinkColumns.split(",");
+        List<String> columnList = Arrays.asList(columnArr);
+
+        Set<Map.Entry<String, Object>> entrySet = dataJsonObj.entrySet();
+
+        entrySet.removeIf(entry->!columnList.contains(entry.getKey()));
 
     }
 
@@ -108,33 +145,11 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
         createSql.append(") " + ext);
         System.out.println("在phoenix中执行的建表语句:" + createSql);
 
-        PreparedStatement ps = null;
-        Connection conn = null;
         try {
-            //获取连接
-            conn = dataSource.getConnection();
-            //获取数据库操作对象
-            ps = conn.prepareStatement(createSql.toString());
-            //执行SQL语句
-            ps.execute();
+            Connection conn = dataSource.getConnection();
+            PhoenixUtil.executeSql(conn,createSql.toString());
         } catch (Exception e) {
             e.printStackTrace();
-        }finally {
-            //释放资源
-            if(ps != null){
-                try {
-                    ps.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-            if(conn != null){
-                try {
-                    conn.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
         }
     }
 }
