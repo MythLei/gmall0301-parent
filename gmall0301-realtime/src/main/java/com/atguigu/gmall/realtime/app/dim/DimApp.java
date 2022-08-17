@@ -11,16 +11,11 @@ import com.ververica.cdc.connectors.mysql.table.StartupOptions;
 import com.ververica.cdc.debezium.JsonDebeziumDeserializationSchema;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FilterFunction;
-import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.state.MapStateDescriptor;
-import org.apache.flink.api.common.time.Time;
-import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
-import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.BroadcastConnectedStream;
 import org.apache.flink.streaming.api.datastream.BroadcastStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
-import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 
@@ -85,7 +80,7 @@ public class DimApp {
         //1.2 设置并行度
         env.setParallelism(4);
 
-        //TODO 2.检查点相关设置
+        /*//TODO 2.检查点相关设置
         //2.1 开启检查点
         env.enableCheckpointing(5000L, CheckpointingMode.EXACTLY_ONCE);
         //2.2 检查点超时时间
@@ -102,7 +97,7 @@ public class DimApp {
         // env.getCheckpointConfig().setCheckpointStorage(new JobManagerCheckpointStorage());
         env.getCheckpointConfig().setCheckpointStorage("hdfs://hadoop202:8020/gmall/ck");
         //2.7 设置操作hadoop的用户
-        System.setProperty("HADOOP_USER_NAME","atguigu");
+        System.setProperty("HADOOP_USER_NAME","atguigu");*/
 
         //TODO 3.从kafka的topic_db主题中读取数据
         //3.1 声明消费的主题以及消费者组

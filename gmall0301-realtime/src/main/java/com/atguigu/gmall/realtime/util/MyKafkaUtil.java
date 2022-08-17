@@ -2,10 +2,15 @@ package com.atguigu.gmall.realtime.util;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 import org.apache.flink.streaming.connectors.kafka.KafkaDeserializationSchema;
+import org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
+import javax.annotation.Nullable;
 import java.util.Properties;
 
 /**
@@ -31,7 +36,7 @@ public class MyKafkaUtil {
 
             @Override
             public String deserialize(ConsumerRecord<byte[], byte[]> record) throws Exception {
-                if(record != null && record.value()!=null){
+                if (record != null && record.value() != null) {
                     return new String(record.value());
                 }
                 return null;
@@ -43,5 +48,22 @@ public class MyKafkaUtil {
             }
         }, props);
         return kafkaConsumer;
+    }
+
+    //获取生产者对象
+    public static FlinkKafkaProducer<String> getKafkaProducer(String topic) {
+        Properties props = new Properties();
+        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,KAFKA_SERVER);
+        props.setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG,60 * 15 * 1000 + "");
+        //注意：以下这种创建生产者对象的方式  并不能保证生产数据的一致性
+        // FlinkKafkaProducer<String> kafkaProducer = new FlinkKafkaProducer<>("hadoop202:9092", "dirty_data", new SimpleStringSchema());
+        FlinkKafkaProducer<String> kafkaProducer = new FlinkKafkaProducer<>("default_topic",
+            new KafkaSerializationSchema<String>() {
+                @Override
+                public ProducerRecord<byte[], byte[]> serialize(String jsonStr, @Nullable Long timestamp) {
+                    return new ProducerRecord<byte[], byte[]>(topic, jsonStr.getBytes());
+                }
+            }, props, FlinkKafkaProducer.Semantic.EXACTLY_ONCE);
+        return kafkaProducer;
     }
 }
