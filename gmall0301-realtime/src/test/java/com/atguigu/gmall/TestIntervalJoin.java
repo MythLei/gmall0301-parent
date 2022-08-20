@@ -18,7 +18,7 @@ import org.apache.flink.util.Collector;
 public class TestIntervalJoin {
     public static void main(String[] args) throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setParallelism(1);
+        env.setParallelism(2);
 
         SingleOutputStreamOperator<Emp> empDS = env
             .socketTextStream("hadoop202", 8888)
@@ -46,6 +46,7 @@ public class TestIntervalJoin {
                     )
             );
 
+        empDS.print("emp:");
         SingleOutputStreamOperator<Dept> deptDS = env.socketTextStream("hadoop202", 8889).map(
             lineStr -> {
                 String[] fieldArr = lineStr.split(",");
@@ -63,6 +64,7 @@ public class TestIntervalJoin {
                     }
                 )
         );
+        deptDS.print("dept:");
 
         //使用intervalJoin对两条流进行连接
         SingleOutputStreamOperator<Tuple2<Emp, Dept>> processDS = empDS
