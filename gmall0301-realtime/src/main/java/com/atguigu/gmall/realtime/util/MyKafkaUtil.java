@@ -53,8 +53,8 @@ public class MyKafkaUtil {
     //获取生产者对象
     public static FlinkKafkaProducer<String> getKafkaProducer(String topic) {
         Properties props = new Properties();
-        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,KAFKA_SERVER);
-        props.setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG,60 * 15 * 1000 + "");
+        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_SERVER);
+        props.setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG, 60 * 15 * 1000 + "");
         //注意：以下这种创建生产者对象的方式  并不能保证生产数据的一致性
         // FlinkKafkaProducer<String> kafkaProducer = new FlinkKafkaProducer<>("hadoop202:9092", "dirty_data", new SimpleStringSchema());
         FlinkKafkaProducer<String> kafkaProducer = new FlinkKafkaProducer<>("default_topic",
@@ -65,5 +65,41 @@ public class MyKafkaUtil {
                 }
             }, props, FlinkKafkaProducer.Semantic.EXACTLY_ONCE);
         return kafkaProducer;
+    }
+
+    //获取 从kafka的topic_db主题中读取数据创建动态表的DDL
+    public static String getTopicDDL(String groupId) {
+        return "CREATE TABLE topic_db (\n" +
+            "  `database` string,\n" +
+            "  `table` string,\n" +
+            "  `type` string,\n" +
+            "  `ts` string,\n" +
+            "  `data` MAP<string, string>,\n" +
+            "  `old` MAP<string, string>,\n" +
+            "  proc_time as proctime()\n" +
+            ") " + getKafkaDDL("topic_db", groupId);
+    }
+
+    //获取kafka连接器相关的连接属性
+    public static String getKafkaDDL(String topic, String groupId) {
+        return " WITH (\n" +
+            "  'connector' = 'kafka',\n" +
+            "  'topic' = '" + topic + "',\n" +
+            "  'properties.bootstrap.servers' = '" + KAFKA_SERVER + "',\n" +
+            "  'properties.group.id' = '" + groupId + "',\n" +
+            "  'scan.startup.mode' = 'group-offsets',\n" +
+            "  'format' = 'json'\n" +
+            ")";
+    }
+
+    //获取upsert-kafka连接器相关的连接属性
+    public static String getUpsertKafkaDDL(String topic) {
+        return " WITH (\n" +
+            "  'connector' = 'upsert-kafka',\n" +
+            "  'topic' = '" + topic + "',\n" +
+            "  'properties.bootstrap.servers' = '" + KAFKA_SERVER + "',\n" +
+            "  'key.format' = 'json',\n" +
+            "  'value.format' = 'json'\n" +
+            ")";
     }
 }

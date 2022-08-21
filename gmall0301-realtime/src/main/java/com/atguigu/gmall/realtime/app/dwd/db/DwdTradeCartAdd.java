@@ -1,5 +1,7 @@
 package com.atguigu.gmall.realtime.app.dwd.db;
 
+import com.atguigu.gmall.realtime.util.MyKafkaUtil;
+import com.atguigu.gmall.realtime.util.MysqlUtil;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
@@ -8,6 +10,8 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
  * @author Felix
  * @date 2022/8/20
  * 交易域：加购事实表
+ * 需要启动的进程
+ *      zk、kafka、maxwell、DwdTradeCartAdd
  */
 public class DwdTradeCartAdd {
     public static void main(String[] args) {
@@ -20,22 +24,7 @@ public class DwdTradeCartAdd {
         StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env);
         //TODO 2.检查点相关设置(略)
         //TODO 3.从topic_db主题中读取业务表变化数据  创建动态表
-        tableEnv.executeSql("CREATE TABLE topic_db (\n" +
-            "  `database` string,\n" +
-            "  `table` string,\n" +
-            "  `type` string,\n" +
-            "  `ts` string,\n" +
-            "  `data` MAP<string, string>,\n" +
-            "  `old` MAP<string, string>,\n" +
-            "  proc_time as proctime()\n" +
-            ") WITH (\n" +
-            "  'connector' = 'kafka',\n" +
-            "  'topic' = 'topic_db',\n" +
-            "  'properties.bootstrap.servers' = 'hadoop202:9092,hadoop203:9092,hadoop204:9092',\n" +
-            "  'properties.group.id' = 'dwd_trade_cart_add',\n" +
-            "  'scan.startup.mode' = 'group-offsets',\n" +
-            "  'format' = 'json'\n" +
-            ")");
+        tableEnv.executeSql(MyKafkaUtil.getTopicDDL("dwd_trade_cart_add_group"));
 
         // tableEnv.executeSql("select * from topic_db").print();
 
@@ -55,20 +44,7 @@ public class DwdTradeCartAdd {
         // tableEnv.executeSql("select * from cart_add").print();
 
         //TODO 5.从MySQL中读取字典维度表
-        tableEnv.executeSql("CREATE TABLE base_dic (\n" +
-            "  dic_code string,\n" +
-            "  dic_name STRING,\n" +
-            "  PRIMARY KEY (dic_code) NOT ENFORCED\n" +
-            ") WITH (\n" +
-            "   'connector' = 'jdbc',\n" +
-            "   'driver' = 'com.mysql.cj.jdbc.Driver',\n" +
-            "   'url' = 'jdbc:mysql://hadoop202:3306/gmall0301',\n" +
-            "   'table-name' = 'base_dic',\n" +
-            "   'lookup.cache.max-rows' = '500',\n" +
-            "   'lookup.cache.ttl' = '1 hour',\n" +
-            "   'username' = 'root',\n" +
-            "   'password' = '123456'\n" +
-            ")");
+        tableEnv.executeSql(MysqlUtil.getBaseDicLookUpDDL());
 
         //TODO 6.关联加购和字典表
         Table resTable = tableEnv.sqlQuery("SELECT \n" +
@@ -97,13 +73,7 @@ public class DwdTradeCartAdd {
             "  sku_num string,\n" +
             "  ts string,\n" +
             "  PRIMARY KEY (id) NOT ENFORCED\n" +
-            ") WITH (\n" +
-            "  'connector' = 'upsert-kafka',\n" +
-            "  'topic' = 'dwd_trade_cart_add',\n" +
-            "  'properties.bootstrap.servers' = 'hadoop202:9092',\n" +
-            "  'key.format' = 'json',\n" +
-            "  'value.format' = 'json'\n" +
-            ")");
+            ") " + MyKafkaUtil.getUpsertKafkaDDL("dwd_trade_cart_add"));
         //7.2 写入
         tableEnv.executeSql("insert into dwd_trade_cart_add select * from res_table");
     }
