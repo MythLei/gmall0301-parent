@@ -50,7 +50,6 @@
     <orderEntry type="library" name="Maven: org.xerial.snappy:snappy-java:1.1.8.3" level="project" />
     <orderEntry type="library" name="Maven: com.twitter:chill_2.12:0.7.6" level="project" />
     <orderEntry type="library" name="Maven: com.twitter:chill-java:0.7.6" level="project" />
-    <orderEntry type="library" name="Maven: org.lz4:lz4-java:1.6.0" level="project" />
     <orderEntry type="library" name="Maven: org.apache.flink:flink-shaded-guava:18.0-13.0" level="project" />
     <orderEntry type="library" name="Maven: org.apache.flink:flink-connector-kafka_2.12:1.13.0" level="project" />
     <orderEntry type="library" name="Maven: org.apache.kafka:kafka-clients:2.4.1" level="project" />
@@ -70,8 +69,6 @@
     <orderEntry type="library" name="Maven: com.google.errorprone:error_prone_annotations:2.2.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.j2objc:j2objc-annotations:1.1" level="project" />
     <orderEntry type="library" name="Maven: org.codehaus.mojo:animal-sniffer-annotations:1.17" level="project" />
-    <orderEntry type="library" name="Maven: org.apache.httpcomponents:httpclient:4.5.2" level="project" />
-    <orderEntry type="library" name="Maven: org.apache.httpcomponents:httpcore:4.4.4" level="project" />
     <orderEntry type="library" name="Maven: commons-codec:commons-codec:1.11" level="project" />
     <orderEntry type="library" name="Maven: commons-net:commons-net:3.6" level="project" />
     <orderEntry type="library" name="Maven: org.eclipse.jetty:jetty-servlet:9.3.24.v20180605" level="project" />
@@ -289,5 +286,19 @@
     <orderEntry type="library" name="Maven: org.codehaus.janino:janino:3.0.11" level="project" />
     <orderEntry type="library" name="Maven: org.codehaus.janino:commons-compiler:3.0.11" level="project" />
     <orderEntry type="library" name="Maven: org.apache.calcite.avatica:avatica-core:1.17.0" level="project" />
+    <orderEntry type="library" name="Maven: com.janeluo:ikanalyzer:2012_u6" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.lucene:lucene-core:4.7.2" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.lucene:lucene-queryparser:4.7.2" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.lucene:lucene-queries:4.7.2" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.lucene:lucene-sandbox:4.7.2" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.lucene:lucene-analyzers-common:4.7.2" level="project" />
+    <orderEntry type="library" name="Maven: ru.yandex.clickhouse:clickhouse-jdbc:0.3.0" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.httpcomponents:httpclient:4.5.13" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.httpcomponents:httpcore:4.4.13" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.httpcomponents:httpmime:4.5.13" level="project" />
+    <orderEntry type="library" name="Maven: org.lz4:lz4-java:1.7.1" level="project" />
+    <orderEntry type="library" name="Maven: com.github.RoaringBitmap:RoaringBitmap:0.9.9" level="project" />
+    <orderEntry type="library" name="Maven: com.github.RoaringBitmap.RoaringBitmap:RoaringBitmap:0.9.9" level="project" />
+    <orderEntry type="library" name="Maven: com.github.RoaringBitmap.RoaringBitmap:shims:0.9.9" level="project" />
   </component>
 </module>
