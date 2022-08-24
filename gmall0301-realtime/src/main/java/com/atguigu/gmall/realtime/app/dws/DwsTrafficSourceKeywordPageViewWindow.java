@@ -2,20 +2,13 @@ package com.atguigu.gmall.realtime.app.dws;
 
 import com.atguigu.gmall.realtime.app.func.KeywordUDTF;
 import com.atguigu.gmall.realtime.bean.KeywordBean;
-import com.atguigu.gmall.realtime.common.GmallConfig;
 import com.atguigu.gmall.realtime.common.GmallConstant;
+import com.atguigu.gmall.realtime.util.MyClickhouseUtil;
 import com.atguigu.gmall.realtime.util.MyKafkaUtil;
-import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
-import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
-import org.apache.flink.connector.jdbc.JdbcSink;
-import org.apache.flink.connector.jdbc.JdbcStatementBuilder;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
-
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 
 /**
  * @author Felix
@@ -76,31 +69,10 @@ public class DwsTrafficSourceKeywordPageViewWindow {
         //TODO 7.将动态表转换为流
         DataStream<KeywordBean> keywordDS = tableEnv.toAppendStream(resTable, KeywordBean.class);
 
-        // keywordDS.print(">>>>");
+        keywordDS.print(">>>>");
         //TODO 8.将流中的结果写到Clickhouse表中
         keywordDS.addSink(
-            JdbcSink.<KeywordBean>sink(
-                "insert into dws_traffic_source_keyword_page_view_window values(?,?,?,?,?,?)",
-                new JdbcStatementBuilder<KeywordBean>() {
-                    @Override
-                    public void accept(PreparedStatement ps, KeywordBean keywordBean) throws SQLException {
-                        //给问号占位符赋值
-                        ps.setObject(1,keywordBean.getStt());
-                        ps.setObject(2,keywordBean.getEdt());
-                        ps.setObject(3,keywordBean.getSource());
-                        ps.setObject(4,keywordBean.getKeyword());
-                        ps.setObject(5,keywordBean.getKeyword_count());
-                        ps.setObject(6,keywordBean.getTs());
-                    }
-                },
-                new JdbcExecutionOptions.Builder()
-                    .withBatchSize(5)
-                    .build(),
-                new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
-                    .withDriverName(GmallConfig.CLICKHOUSE_DRIVER)
-                    .withUrl(GmallConfig.CLICKHOUSE_URL)
-                    .build()
-            )
+            MyClickhouseUtil.getSinkFunction("insert into dws_traffic_source_keyword_page_view_window values(?,?,?,?,?,?)")
         );
 
         env.execute();
