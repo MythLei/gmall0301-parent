@@ -96,7 +96,7 @@ public class DwdTrafficUserJumpDetail {
                     return StringUtils.isEmpty(lastPageId);
                 }
             }
-        ).within(Time.seconds(1));
+        ).within(Time.seconds(10));
         //7.2 将pattern应用到流上
         PatternStream<JSONObject> patternDS = CEP.pattern(keyedDS, pattern);
 

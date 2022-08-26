@@ -58,6 +58,7 @@ public class MyClickhouseUtil {
             },
             new JdbcExecutionOptions.Builder()
                 .withBatchSize(5)
+                .withBatchIntervalMs(3000L)
                 .build(),
             new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
                 .withDriverName(GmallConfig.CLICKHOUSE_DRIVER)

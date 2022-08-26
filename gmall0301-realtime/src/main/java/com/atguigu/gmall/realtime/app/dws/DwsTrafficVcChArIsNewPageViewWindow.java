@@ -3,22 +3,34 @@ package com.atguigu.gmall.realtime.app.dws;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.realtime.bean.TrafficPageViewBean;
+import com.atguigu.gmall.realtime.util.DateFormatUtil;
+import com.atguigu.gmall.realtime.util.MyClickhouseUtil;
 import com.atguigu.gmall.realtime.util.MyKafkaUtil;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.flink.api.common.eventtime.SerializableTimestampAssigner;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSource;
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.api.common.functions.ReduceFunction;
+import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.tuple.Tuple4;
+import org.apache.flink.streaming.api.datastream.*;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.util.Collector;
+
+import java.time.Duration;
 
 /**
  * @author Felix
  * @date 2022/8/24
  * 流量域：版本、地区、渠道、新老访客维度聚合统计
  * 需要启动的进程
- *      zk、kafka、flume、DwdTrafficBaseLogSplit、DwdTrafficUniqueVisitorDetail
- *      DwdTrafficUserJumpDetail、DwsTrafficVcChArIsNewPageViewWindow
+ * zk、kafka、flume、DwdTrafficBaseLogSplit、DwdTrafficUniqueVisitorDetail
+ * DwdTrafficUserJumpDetail、DwsTrafficVcChArIsNewPageViewWindow
  */
 public class DwsTrafficVcChArIsNewPageViewWindow {
     public static void main(String[] args) throws Exception {
@@ -127,17 +139,72 @@ public class DwsTrafficVcChArIsNewPageViewWindow {
             ujdStatsDS
         );
 
-        unionDS.print(">>>>>");
+        // unionDS.print(">>>>>");
 
         //TODO 6.指定Watermark以及提取事件时间字段
+        SingleOutputStreamOperator<TrafficPageViewBean> withWatermarkDS = unionDS.assignTimestampsAndWatermarks(
+            WatermarkStrategy
+                .<TrafficPageViewBean>forBoundedOutOfOrderness(Duration.ofSeconds(3))
+                .withTimestampAssigner(
+                    new SerializableTimestampAssigner<TrafficPageViewBean>() {
+                        @Override
+                        public long extractTimestamp(TrafficPageViewBean viewBean, long recordTimestamp) {
+                            return viewBean.getTs();
+                        }
+                    }
+                )
+        );
 
         //TODO 7.按照统计维度分组
+        KeyedStream<TrafficPageViewBean, Tuple4<String, String, String, String>> keyedDS = withWatermarkDS.keyBy(
+            new KeySelector<TrafficPageViewBean, Tuple4<String, String, String, String>>() {
+                @Override
+                public Tuple4<String, String, String, String> getKey(TrafficPageViewBean viewBean) throws Exception {
+                    return Tuple4.of(
+                        viewBean.getVc(),
+                        viewBean.getCh(),
+                        viewBean.getAr(),
+                        viewBean.getIsNew()
+                    );
+                }
+            }
+        );
+
 
         //TODO 8.开窗
+        WindowedStream<TrafficPageViewBean, Tuple4<String, String, String, String>, TimeWindow> windowDS = keyedDS.window(TumblingEventTimeWindows.of(Time.seconds(10)));
 
         //TODO 9.聚合计算
+        SingleOutputStreamOperator<TrafficPageViewBean> reduceDS = windowDS.reduce(
+            new ReduceFunction<TrafficPageViewBean>() {
+                @Override
+                public TrafficPageViewBean reduce(TrafficPageViewBean value1, TrafficPageViewBean value2) throws Exception {
+                    value1.setPvCt(value1.getPvCt() + value2.getPvCt());
+                    value1.setDurSum(value1.getDurSum() + value2.getDurSum());
+                    value1.setSvCt(value1.getSvCt() + value2.getSvCt());
+                    value1.setUvCt(value1.getUvCt() + value2.getUvCt());
+                    value1.setUjCt(value1.getUjCt() + value2.getUjCt());
+                    return value1;
+                }
+            },
+            new WindowFunction<TrafficPageViewBean, TrafficPageViewBean, Tuple4<String, String, String, String>, TimeWindow>() {
+                @Override
+                public void apply(Tuple4<String, String, String, String> stringStringStringStringTuple4, TimeWindow window, Iterable<TrafficPageViewBean> input, Collector<TrafficPageViewBean> out) throws Exception {
+                    for (TrafficPageViewBean bean : input) {
+                        bean.setStt(DateFormatUtil.toYmdHms(window.getStart()));
+                        bean.setEdt(DateFormatUtil.toYmdHms(window.getEnd()));
+                        bean.setTs(System.currentTimeMillis());
+                        out.collect(bean);
+                    }
+                }
+            }
+        );
 
         //TODO 10.将聚合的结果写到Clickhouse表中
+        reduceDS.print(">>>>");
+        reduceDS.addSink(
+            MyClickhouseUtil.getSinkFunction("insert into dws_traffic_vc_ch_ar_is_new_page_view_window values(?,?,?,?,?,?,?,?,?,?,?,?)")
+        );
         env.execute();
     }
 }
