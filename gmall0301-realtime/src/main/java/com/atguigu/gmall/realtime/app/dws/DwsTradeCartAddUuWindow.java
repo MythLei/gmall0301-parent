@@ -95,10 +95,13 @@ public class DwsTradeCartAddUuWindow {
                     String curCartDate = DateFormatUtil.toDate(jsonObj.getLong("ts") * 1000);
                     if (StringUtils.isEmpty(lastCartDate) || !lastCartDate.equals(curCartDate)) {
                         out.collect(jsonObj);
+                        //补充
+                        lastCartDateState.update(curCartDate);
                     }
                 }
             }
         );
+
 
         //TODO 8.开窗
         AllWindowedStream<JSONObject, TimeWindow> windowDS = processDS.windowAll(TumblingEventTimeWindows.of(org.apache.flink.streaming.api.windowing.time.Time.seconds(10)));
